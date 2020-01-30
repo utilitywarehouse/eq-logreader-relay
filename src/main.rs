@@ -1,6 +1,3 @@
-#![feature(toowned_clone_into)]
-#![allow(dead_code)]
-
 use crossbeam_channel::{bounded, select, Receiver};
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
