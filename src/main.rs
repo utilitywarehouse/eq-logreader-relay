@@ -17,7 +17,7 @@ use std::{thread, time};
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt()]
+#[structopt(about = "tail equinox log files and relay entries")]
 struct Opt {
     /// Verbose output
     #[structopt(short, long)]
