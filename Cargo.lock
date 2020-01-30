@@ -99,7 +99,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "eq-log-reader-relay"
+name = "eq-logreader-relay"
 version = "0.1.0"
 dependencies = [
  "crossbeam-channel",
