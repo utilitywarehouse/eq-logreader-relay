@@ -27,7 +27,7 @@ struct Opt {
     #[structopt(short, long)]
     wait: bool,
 
-    #[structopt(short, long, default_value = "/tmp/state.json")]
+    #[structopt(short, long)]
     /// Filename of state file
     state_file: String,
 
