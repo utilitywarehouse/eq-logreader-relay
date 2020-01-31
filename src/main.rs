@@ -147,9 +147,7 @@ fn do_process(
         }
 
         match r.next(&mut buf)? {
-            Some(_len) => {
-                bw.write_all(&buf)?
-            }
+            Some(_len) => bw.write_all(&buf)?,
             None => {
                 if !wait {
                     return Ok(());
@@ -630,7 +628,8 @@ mod tests {
 
     #[test]
     fn test_single_reader() -> io::Result<()> {
-        let bytes = include_bytes!("/mnt/mirr2/subset/2019-07-23/DMRC_2019-07-23_23BDA5A300008C43.log");
+        let bytes =
+            include_bytes!("/mnt/mirr2/subset/2019-07-23/DMRC_2019-07-23_23BDA5A300008C43.log");
         let mut v: Vec<u8> = Vec::new();
         v.extend_from_slice(bytes);
 
