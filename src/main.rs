@@ -29,7 +29,7 @@ struct Opt {
 
     #[structopt(short, long)]
     /// Filename of state file
-    state_file: String,
+    state_file: Option<String>,
 
     #[structopt(subcommand)] // Note that we mark a field as a subcommand
     cmd: Command,
@@ -69,11 +69,11 @@ fn do_main() -> io::Result<()> {
     match opt.cmd {
         Command::File { file } => {
             let mut sr = SingleEntryReader::open(&file)?;
-            process(&mut sr, &quit, &opt.state_file, opt.wait, opt.verbose)?;
+            process(&mut sr, &quit, opt.state_file, opt.wait, opt.verbose)?;
         }
         Command::Dir { dir } => {
             let mut mr = MultiEntryReader::new(&dir, opt.verbose);
-            process(&mut mr, &quit, &opt.state_file, opt.wait, opt.verbose)?;
+            process(&mut mr, &quit, opt.state_file, opt.wait, opt.verbose)?;
         }
     }
 
@@ -89,32 +89,33 @@ trait EntryReader {
 fn process(
     r: &mut dyn EntryReader,
     quit: &Receiver<()>,
-    state_file_name: &str,
+    state_file_name: Option<String>,
     wait: bool,
     verbose: bool,
 ) -> io::Result<()> {
-    if state_file_name != "" {
-        match fs::File::open(state_file_name) {
-            Ok(f) => {
-                let mut br = io::BufReader::with_capacity(32 * 1024, f);
-                let mut s = String::new();
-                br.read_to_string(&mut s)?;
+    match &state_file_name {
+        None => {
+            do_process(r, quit, wait, verbose)?;
+        }
+        Some(state_file_name) => {
+            match fs::File::open(state_file_name) {
+                Ok(f) => {
+                    let mut br = io::BufReader::with_capacity(32 * 1024, f);
+                    let mut s = String::new();
+                    br.read_to_string(&mut s)?;
 
-                r.seek(&s)?;
-            }
-            Err(e) => {
-                if e.kind() != ErrorKind::NotFound {
-                    return Err(e);
+                    r.seek(&s)?;
+                }
+                Err(e) => {
+                    if e.kind() != ErrorKind::NotFound {
+                        return Err(e);
+                    }
                 }
             }
+            do_process(r, quit, wait, verbose)?;
+            let mut f = fs::File::create(state_file_name)?;
+            write!(&mut f, "{}", &r.position())?;
         }
-    }
-
-    do_process(r, quit, wait, verbose)?;
-
-    if state_file_name != "" {
-        let mut f = fs::File::create(state_file_name)?;
-        write!(&mut f, "{}", &r.position())?;
     }
 
     Ok(())
