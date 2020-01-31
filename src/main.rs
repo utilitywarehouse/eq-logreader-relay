@@ -31,13 +31,24 @@ struct Opt {
     /// Filename of state file
     state_file: String,
 
-    /// Type of input 'dir' or 'file'
-    #[structopt(name = "TYPE")]
-    input_type: String,
+    #[structopt(subcommand)] // Note that we mark a field as a subcommand
+    cmd: Command,
+}
 
-    /// File to process
-    #[structopt(name = "PATH", parse(from_os_str))]
-    path: PathBuf,
+#[derive(StructOpt, Debug)]
+enum Command {
+    /// Process a directory (this is the "normal" situation)
+    Dir {
+        /// Directory to process
+        #[structopt(parse(from_os_str))]
+        dir: PathBuf,
+    },
+    /// Process a single file (usually for testing purposes)
+    File {
+        /// File to process
+        #[structopt(parse(from_os_str))]
+        file: PathBuf,
+    },
 }
 
 fn main() {
@@ -55,22 +66,17 @@ fn do_main() -> io::Result<()> {
 
     let quit = ctrl_channel().unwrap();
 
-    match opt.input_type.as_str() {
-        "file" => {
-            let mut sr = SingleEntryReader::open(&opt.path)?;
+    match opt.cmd {
+        Command::File { file } => {
+            let mut sr = SingleEntryReader::open(&file)?;
             process(&mut sr, &quit, &opt.state_file, opt.wait, opt.verbose)?;
         }
-        "dir" => {
-            let mut mr = MultiEntryReader::new(&opt.path, opt.verbose);
+        Command::Dir { dir } => {
+            let mut mr = MultiEntryReader::new(&dir, opt.verbose);
             process(&mut mr, &quit, &opt.state_file, opt.wait, opt.verbose)?;
         }
-        _ => {
-            return Err(io::Error::new(
-                ErrorKind::Other,
-                format!("unknown input type {}", opt.input_type.as_str()),
-            ));
-        }
     }
+
     Ok(())
 }
 
