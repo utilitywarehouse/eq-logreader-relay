@@ -178,7 +178,8 @@ struct SingleEntryReader {
     pos: u64,
 }
 
-// read exactly count bytes into buf
+// Read exactly count bytes into buf.  If an error occurs, buf may have had partial data added, and
+// r may be been read from.
 fn read_count(r: &mut dyn BufRead, buf: &mut Vec<u8>, count: usize) -> io::Result<()> {
     let mut remaining = count;
     loop {
@@ -207,6 +208,7 @@ impl EntryReader for SingleEntryReader {
     fn next(&mut self, buf: &mut Vec<u8>) -> io::Result<Option<u64>> {
         let cl = buf.len();
 
+        // read the header to get the length of the entry
         match read_count(&mut self.r, buf, 5) {
             Err(e) => {
                 if e.kind() == ErrorKind::UnexpectedEof {
@@ -220,6 +222,7 @@ impl EntryReader for SingleEntryReader {
 
         let len: usize = u32::from_le_bytes(buf[cl + 1..cl + 5].try_into().unwrap()) as usize;
 
+        // read the rest of the entry (the -5 is because we already read the header)
         match read_count(&mut self.r, buf, len - 5) {
             Err(e) => {
                 if e.kind() == ErrorKind::UnexpectedEof {
