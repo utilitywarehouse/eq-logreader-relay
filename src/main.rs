@@ -234,8 +234,9 @@ impl EntryReader for SingleEntryReader {
             Ok(()) => {}
         }
 
-        self.pos += len as u64;
-        Ok(Some(len as u64))
+        let l = len as u64;
+        self.pos += l;
+        Ok(Some(l))
     }
 
     fn position(&self) -> String {
