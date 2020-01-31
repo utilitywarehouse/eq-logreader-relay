@@ -309,6 +309,12 @@ impl EntryReader for MultiEntryReader<'_> {
 
             // now we either don't have a file, or we're at EOF
 
+            // we only move on to the next file here if we already determined there is one last
+            // time around the loop. Otherwise, we record that there is one and wait for the next
+            // time around.  This is to avoid a race when we're at EOF, but between us finding that
+            // EOF and checking for the next file, not only has the next file been created, but
+            // more bytes were also written to the current file, so we can theoretically miss data
+            // otherwise.
             match &self.next {
                 Some(next) => {
                     let filename = next.full_name(self.dir);
