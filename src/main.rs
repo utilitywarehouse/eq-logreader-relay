@@ -36,18 +36,34 @@ struct Opt {
 }
 
 #[derive(StructOpt, Debug)]
+enum OutputSpec {
+    /// Output to a file
+    File {
+        /// Directory to process
+        #[structopt(parse(from_os_str))]
+        file: PathBuf,
+    },
+    /// No output
+    None,
+}
+
+#[derive(StructOpt, Debug)]
 enum Command {
     /// Process a directory (this is the "normal" situation)
     Dir {
         /// Directory to process
         #[structopt(parse(from_os_str))]
         dir: PathBuf,
+        #[structopt(subcommand)] // Note that we mark a field as a subcommand
+        output: OutputSpec,
     },
     /// Process a single file (usually for testing purposes)
     File {
         /// File to process
         #[structopt(parse(from_os_str))]
         file: PathBuf,
+        #[structopt(subcommand)] // Note that we mark a field as a subcommand
+        output: OutputSpec,
     },
 }
 
@@ -67,13 +83,27 @@ fn do_main() -> io::Result<()> {
     let quit = ctrl_channel().unwrap();
 
     match opt.cmd {
-        Command::File { file } => {
+        Command::File { file, output } => {
             let mut sr = SingleEntryReader::open(&file)?;
-            process(&mut sr, &quit, opt.state_file, opt.wait, opt.verbose)?;
+            process(
+                &mut sr,
+                &quit,
+                opt.state_file,
+                opt.wait,
+                opt.verbose,
+                output,
+            )?;
         }
-        Command::Dir { dir } => {
+        Command::Dir { dir, output } => {
             let mut mr = MultiEntryReader::new(&dir, opt.verbose);
-            process(&mut mr, &quit, opt.state_file, opt.wait, opt.verbose)?;
+            process(
+                &mut mr,
+                &quit,
+                opt.state_file,
+                opt.wait,
+                opt.verbose,
+                output,
+            )?;
         }
     }
 
@@ -92,10 +122,11 @@ fn process(
     state_file_name: Option<String>,
     wait: bool,
     verbose: bool,
+    os: OutputSpec,
 ) -> io::Result<()> {
     match &state_file_name {
         None => {
-            do_process(r, quit, wait, verbose)?;
+            do_process(r, quit, wait, verbose, os)?;
         }
         Some(state_file_name) => {
             match fs::File::open(state_file_name) {
@@ -112,7 +143,7 @@ fn process(
                     }
                 }
             }
-            do_process(r, quit, wait, verbose)?;
+            do_process(r, quit, wait, verbose, os)?;
             let mut f = fs::File::create(state_file_name)?;
             write!(&mut f, "{}", &r.position())?;
         }
@@ -121,14 +152,46 @@ fn process(
     Ok(())
 }
 
+trait EntryWriter {
+    fn write_entry(&mut self, buf: &Vec<u8>) -> io::Result<()>;
+}
+
+struct FileEntryWriter {
+    w: io::BufWriter<File>,
+}
+
+impl EntryWriter for FileEntryWriter {
+    fn write_entry(&mut self, buf: &Vec<u8>) -> io::Result<()> {
+        self.w.write_all(buf)
+    }
+}
+
+struct NoneEntryWriter {}
+
+impl EntryWriter for NoneEntryWriter {
+    fn write_entry(&mut self, _buf: &Vec<u8>) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 fn do_process(
     r: &mut dyn EntryReader,
     quit: &Receiver<()>,
     wait: bool,
     verbose: bool,
+    os: OutputSpec,
 ) -> io::Result<()> {
-    let so = std::io::stdout();
-    let mut bw = io::BufWriter::new(so);
+    let mut out: Box<dyn EntryWriter>;
+    match os {
+        OutputSpec::None => {
+            out = Box::new(NoneEntryWriter {});
+        }
+        OutputSpec::File { file } => {
+            let so = File::create(file)?;
+            let bw = io::BufWriter::new(so);
+            out = Box::new(FileEntryWriter { w: bw });
+        }
+    }
 
     let mut buf = Vec::new();
 
@@ -148,7 +211,7 @@ fn do_process(
         }
 
         match r.next(&mut buf)? {
-            Some(_len) => bw.write_all(&buf)?,
+            Some(_len) => (*out).write_entry(&buf)?,
             None => {
                 if !wait {
                     return Ok(());
