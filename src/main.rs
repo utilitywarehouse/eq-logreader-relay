@@ -187,7 +187,11 @@ fn do_process(
             out = Box::new(NoneEntryWriter {});
         }
         OutputSpec::File { file } => {
-            let so = File::create(file)?;
+            let so = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .append(true)
+                .open(file)?;
             let bw = io::BufWriter::new(so);
             out = Box::new(FileEntryWriter { w: bw });
         }
