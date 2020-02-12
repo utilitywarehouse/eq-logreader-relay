@@ -153,7 +153,7 @@ fn process(
 }
 
 trait EntryWriter {
-    fn write_entry(&mut self, buf: &Vec<u8>) -> io::Result<()>;
+    fn write_entry(&mut self, buf: &[u8]) -> io::Result<()>;
 }
 
 struct FileEntryWriter {
@@ -161,7 +161,7 @@ struct FileEntryWriter {
 }
 
 impl EntryWriter for FileEntryWriter {
-    fn write_entry(&mut self, buf: &Vec<u8>) -> io::Result<()> {
+    fn write_entry(&mut self, buf: &[u8]) -> io::Result<()> {
         self.w.write_all(buf)
     }
 }
@@ -169,7 +169,7 @@ impl EntryWriter for FileEntryWriter {
 struct NoneEntryWriter {}
 
 impl EntryWriter for NoneEntryWriter {
-    fn write_entry(&mut self, _buf: &Vec<u8>) -> io::Result<()> {
+    fn write_entry(&mut self, _buf: &[u8]) -> io::Result<()> {
         Ok(())
     }
 }
