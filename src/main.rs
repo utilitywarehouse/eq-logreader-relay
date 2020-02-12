@@ -131,7 +131,7 @@ fn process(
         Some(state_file_name) => {
             match fs::File::open(state_file_name) {
                 Ok(f) => {
-                    let mut br = io::BufReader::with_capacity(32 * 1024, f);
+                    let mut br = io::BufReader::new(f);
                     let mut s = String::new();
                     br.read_to_string(&mut s)?;
 
