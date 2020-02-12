@@ -532,6 +532,53 @@ fn determine_next_location(
 }
 
 fn next_entry(parent_dir: &Path, current_entry: &Option<OsString>) -> io::Result<Option<OsString>> {
+    let ce;
+    match &current_entry {
+        None => {
+            ce = "<none>".to_string();
+        }
+        Some(curr) => {
+            ce = curr.to_string_lossy().to_string();
+        }
+    }
+
+    let x = do_next_entry(&parent_dir, &current_entry);
+
+    match &x {
+        Err(e) => {
+            println!(
+                "next_entry failed for path {} on current entry {} with error {}",
+                &parent_dir.to_string_lossy(),
+                &ce,
+                e
+            );
+        }
+        Ok(next) => {
+            let n;
+            match next {
+                None => {
+                    n = "".to_string();
+                }
+                Some(next) => {
+                    n = next.to_string_lossy().to_string();
+                }
+            }
+            println!(
+                "next_entry after {} for path {} is {}",
+                &parent_dir.to_string_lossy(),
+                &ce,
+                n
+            );
+        }
+    }
+
+    return x;
+}
+
+fn do_next_entry(
+    parent_dir: &Path,
+    current_entry: &Option<OsString>,
+) -> io::Result<Option<OsString>> {
     let paths = fs::read_dir(parent_dir)?;
     let mut paths: Vec<_> = paths.map(|r| r.unwrap()).collect();
     paths.sort_by_key(|dir| dir.path());
