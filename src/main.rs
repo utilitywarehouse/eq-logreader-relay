@@ -317,7 +317,7 @@ impl EntryReader for SingleEntryReader {
 impl SingleEntryReader {
     fn open(name: &Path) -> io::Result<SingleEntryReader> {
         let f = File::open(name)?;
-        let f = io::BufReader::new(f);
+        let f = io::BufReader::with_capacity(32 * 1024, f);
         let sr = SingleEntryReader { r: f, pos: 0 };
         Ok(sr)
     }
