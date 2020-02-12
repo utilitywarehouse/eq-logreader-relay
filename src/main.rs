@@ -244,7 +244,7 @@ struct SingleEntryReader {
 
 // Read exactly count bytes into buf.  If an error occurs, buf may have had partial data added, and
 // r may be been read from.
-fn read_count(r: &mut dyn BufRead, buf: &mut Vec<u8>, count: usize) -> io::Result<()> {
+fn read_count(r: &mut impl BufRead, buf: &mut Vec<u8>, count: usize) -> io::Result<()> {
     let mut remaining = count;
     loop {
         let available = match r.fill_buf() {
