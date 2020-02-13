@@ -129,6 +129,9 @@ fn process(
             do_process(r, quit, wait, verbose, os)?;
         }
         Some(state_file_name) => {
+            if verbose {
+                println!("attempting to load existing state from {}", state_file_name);
+            }
             match fs::File::open(state_file_name) {
                 Ok(f) => {
                     let mut br = io::BufReader::new(f);
@@ -141,9 +144,13 @@ fn process(
                     if e.kind() != ErrorKind::NotFound {
                         return Err(e);
                     }
+                    if verbose {
+                        println!("state file not found, starting from the beginning");
+                    }
                 }
             }
             do_process(r, quit, wait, verbose, os)?;
+            println!("saving state to {}", state_file_name);
             let mut f = fs::File::create(state_file_name)?;
             write!(&mut f, "{}", &r.position())?;
         }
