@@ -491,13 +491,13 @@ fn determine_next_location(
 ) -> io::Result<Option<FileLocation>> {
     match last {
         Some(last_loc) => {
-            let nd = next_entry(&dirname, &Some(last_loc.dir.clone()))?;
+            let nd = next_entry(&dirname, &Some(last_loc.dir.clone()), true)?;
 
             let mut pb = PathBuf::new();
             pb.push(&dirname);
             pb.push(&last_loc.dir);
 
-            if let Some(nf) = next_entry(&pb, &Some(last_loc.name.clone()))? {
+            if let Some(nf) = next_entry(&pb, &Some(last_loc.name.clone()), false)? {
                 return Ok(Some(FileLocation {
                     dir: last_loc.dir.clone(),
                     name: nf,
@@ -508,7 +508,7 @@ fn determine_next_location(
                 let mut pb = PathBuf::new();
                 pb.push(&dirname);
                 pb.push(&nd);
-                if let Some(nf) = next_entry(&pb, &None)? {
+                if let Some(nf) = next_entry(&pb, &None, false)? {
                     return Ok(Some(FileLocation { dir: nd, name: nf }));
                 }
             }
@@ -517,7 +517,7 @@ fn determine_next_location(
         }
         None => {
             // no existing state, we're at the start.
-            match next_entry(dirname, &None)? {
+            match next_entry(dirname, &None, true)? {
                 None => Ok(None),
                 Some(firstdir) => {
                     // look if we have a new file in the existing dir
@@ -525,7 +525,7 @@ fn determine_next_location(
                     buf.push(dirname);
                     buf.push(firstdir.clone());
 
-                    match next_entry(&buf, &None)? {
+                    match next_entry(&buf, &None, false)? {
                         Some(next_file) => Ok(Some(FileLocation {
                             dir: firstdir,
                             name: next_file,
@@ -538,9 +538,24 @@ fn determine_next_location(
     }
 }
 
-fn next_entry(parent_dir: &Path, current_entry: &Option<OsString>) -> io::Result<Option<OsString>> {
-    let paths = fs::read_dir(parent_dir)?;
-    let mut paths: Vec<_> = paths.map(|r| r.unwrap()).collect();
+fn next_entry(
+    parent_dir: &Path,
+    current_entry: &Option<OsString>,
+    want_dir: bool,
+) -> io::Result<Option<OsString>> {
+    let mut paths: Vec<_>;
+    if want_dir {
+        paths = fs::read_dir(parent_dir)?
+            .map(|r| r.unwrap())
+            .filter(|r| r.path().is_dir())
+            .collect();
+    } else {
+        paths = fs::read_dir(parent_dir)?
+            .map(|r| r.unwrap())
+            .filter(|r| !r.path().is_dir())
+            .collect();
+    }
+
     paths.sort_by_key(|dir| dir.path());
     match current_entry {
         // special case for getting the first entry
