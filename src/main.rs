@@ -553,6 +553,12 @@ fn next_entry(
         paths = fs::read_dir(parent_dir)?
             .map(|r| r.unwrap())
             .filter(|r| !r.path().is_dir())
+            .filter(|r| {
+                if let Some(ending) = r.path().to_string_lossy().split('.').last() {
+                    return ending == "log";
+                }
+                false
+            })
             .collect();
     }
 
