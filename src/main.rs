@@ -1,4 +1,6 @@
 use crossbeam_channel::{bounded, select, Receiver};
+use proximo_client::proximo::Message;
+use proximo_client::Sink;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use std::ffi::OsString;
@@ -42,6 +44,14 @@ enum OutputSpec {
         /// Directory to process
         #[structopt(parse(from_os_str))]
         file: PathBuf,
+    },
+    /// Output to proximo
+    Proximo {
+        /// Proximo URL to use
+        #[structopt(short, long)]
+        url: String,
+        #[structopt(short, long)]
+        topic: String,
     },
     /// No output
     None,
@@ -181,6 +191,22 @@ impl EntryWriter for NoneEntryWriter {
     }
 }
 
+struct ProximoEntryWriter {
+    sink : proximo_client::Sink
+}
+
+impl ProximoEntryWriter {
+    fn new(_url: &str, _topic: &str) -> Result<ProximoEntryWriter, Box<dyn std::error::Error>> {
+        panic!("TODO: implement me");
+    }
+}
+
+impl EntryWriter for ProximoEntryWriter {
+    fn write_entry(&mut self, _buf: &[u8]) -> io::Result<()> {
+        panic!("TODO: implement me");
+    }
+}
+
 fn do_process(
     r: &mut dyn EntryReader,
     quit: &Receiver<()>,
@@ -202,6 +228,14 @@ fn do_process(
             let bw = io::BufWriter::new(so);
             out = Box::new(FileEntryWriter { w: bw });
         }
+        OutputSpec::Proximo { url, topic } => match ProximoEntryWriter::new(&url, &topic) {
+            Err(e) => {
+                panic!("TODO: handle error properly {}", e);
+            }
+            Ok(ew) => {
+                out = Box::new(ew);
+            }
+        },
     }
 
     let mut buf = Vec::new();
