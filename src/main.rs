@@ -206,7 +206,6 @@ impl ProximoEntryWriter {
         let jh = std::thread::spawn(move || {
             let mut rt = tokio::runtime::Runtime::new().unwrap();
 
-
             rt.block_on(async move {
                 let (mut tx, mut rx) = tokio::sync::mpsc::channel(1024);
 
@@ -227,6 +226,30 @@ impl ProximoEntryWriter {
                 let sink = Sink::new(&url, &topic).await.unwrap();
                 println!("got sink. startin main loop");
 
+                let (mut ack_tx, mut ack_rx) = tokio::sync::mpsc::channel(1024);
+
+                // ack waiting loop
+                tokio::spawn(async move {
+                    loop {
+                        match ack_rx.recv().await {
+                            None => {
+                                // we're exiting. return.
+                                return;
+                            }
+                            Some(m) => {
+                                match m.await {
+                                    Ok(()) => {
+                                        // println!("sent one to proximo");
+                                    }
+                                    Err(e) => {
+                                        println!("error sending message to sink : {}", e);
+                                    }
+                                };
+                            }
+                        }
+                    }
+                });
+
                 loop {
                     match rx.recv().await {
                         None => {
@@ -234,13 +257,15 @@ impl ProximoEntryWriter {
                             return;
                         }
                         Some(m) => {
-                            match sink.send_message(m).await {
+                            let ackFut = sink.send_message(m);
+                            match ack_tx.send(ackFut).await {
                                 Ok(()) => {
+                                    //     println!("sent one");
                                 }
                                 Err(e) => {
-                                    println!("error sending message to sink : {}", e);
+                                    println!("b error : {}", e);
                                 }
-                            }
+                            };
                         }
                     }
                 }
