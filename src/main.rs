@@ -192,18 +192,97 @@ impl EntryWriter for NoneEntryWriter {
 }
 
 struct ProximoEntryWriter {
-    sink : proximo_client::Sink
+    tx_msg: std::sync::mpsc::SyncSender<Message>,
+    _jh: thread::JoinHandle<std::result::Result<(), tokio::task::JoinError>>,
 }
 
 impl ProximoEntryWriter {
-    fn new(_url: &str, _topic: &str) -> Result<ProximoEntryWriter, Box<dyn std::error::Error>> {
-        panic!("TODO: implement me");
+    fn new(url: &str, topic: &str) -> Result<ProximoEntryWriter, Box<dyn std::error::Error>> {
+        let url = url.to_owned();
+        let topic = topic.to_owned();
+
+        let (tx_msg, rx_msg): (
+            std::sync::mpsc::SyncSender<Message>,
+            std::sync::mpsc::Receiver<Message>,
+        ) = std::sync::mpsc::sync_channel(1024);
+
+        let jh = std::thread::spawn(move || {
+            let mut rt = tokio::runtime::Builder::new()
+                .threaded_scheduler()
+                .enable_io()
+                .enable_time()
+                .build()
+                .unwrap();
+
+
+            rt.block_on(async move {
+                let (mut tx, mut rx) = tokio::sync::mpsc::channel(1024);
+
+                tokio::spawn(async move {
+                    loop {
+                        let m = tokio::task::block_in_place(|| rx_msg.recv().unwrap());
+                        match tx.send(m).await {
+                            Ok(()) => {
+                            }
+                            Err(e) => {
+                                println!("a error : {}", e);
+                            }
+                        }
+                    }
+                });
+
+                println!("about to get sink");
+                let sink = Sink::new(&url, &topic).await.unwrap();
+                println!("got sink. startin main loop");
+
+                loop {
+                    match rx.recv().await {
+                        None => {
+                            println!("returning....");
+                            return;
+                        }
+                        Some(m) => {
+                            match sink.send_message(m).await {
+                                Ok(()) => {
+                                }
+                                Err(e) => {
+                                    println!("error sending message to sink : {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            Ok(())
+        });
+
+        Ok(ProximoEntryWriter { tx_msg, _jh: jh })
+    }
+}
+
+impl Drop for ProximoEntryWriter {
+    fn drop(&mut self) {
+        //        self.jh.join().unwrap();  TODO: achieve this somehow.
     }
 }
 
 impl EntryWriter for ProximoEntryWriter {
-    fn write_entry(&mut self, _buf: &[u8]) -> io::Result<()> {
-        panic!("TODO: implement me");
+    fn write_entry(&mut self, buf: &[u8]) -> io::Result<()> {
+        //        println!("in write_entry");
+        let id = "TODO: proper id".to_string();
+        let data = buf.to_vec();
+        match self.tx_msg.send(Message { id, data }) {
+            Ok(()) => {
+                //               println!("ok!!");
+                Ok(())
+            }
+            Err(e) => {
+                println!("error sending to tx_msg!!");
+                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, e));
+            }
+        }
+        //TODO: worry about acks.
     }
 }
 
