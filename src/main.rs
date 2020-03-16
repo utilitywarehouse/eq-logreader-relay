@@ -201,10 +201,7 @@ impl ProximoEntryWriter {
         let url = url.to_owned();
         let topic = topic.to_owned();
 
-        let (tx_msg, rx_msg): (
-            std::sync::mpsc::SyncSender<Message>,
-            std::sync::mpsc::Receiver<Message>,
-        ) = std::sync::mpsc::sync_channel(1024);
+        let (tx_msg, rx_msg) = std::sync::mpsc::sync_channel(1024);
 
         let jh = std::thread::spawn(move || {
             let mut rt = tokio::runtime::Builder::new()
