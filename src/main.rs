@@ -276,7 +276,7 @@ impl EntryWriter for ProximoEntryWriter {
             }
             Err(e) => {
                 println!("error sending to tx_msg!!");
-                return Err(io::Error::new(io::ErrorKind::UnexpectedEof, e));
+                Err(io::Error::new(io::ErrorKind::UnexpectedEof, e))
             }
         }
         //TODO: worry about acks.
