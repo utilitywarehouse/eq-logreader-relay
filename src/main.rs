@@ -204,12 +204,7 @@ impl ProximoEntryWriter {
         let (tx_msg, rx_msg) = std::sync::mpsc::sync_channel(1024);
 
         let jh = std::thread::spawn(move || {
-            let mut rt = tokio::runtime::Builder::new()
-                .threaded_scheduler()
-                .enable_io()
-                .enable_time()
-                .build()
-                .unwrap();
+            let mut rt = tokio::runtime::Runtime::new().unwrap();
 
 
             rt.block_on(async move {
