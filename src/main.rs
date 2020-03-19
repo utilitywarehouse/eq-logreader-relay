@@ -226,46 +226,26 @@ impl ProximoEntryWriter {
                 let sink = Sink::new(&url, &topic).await.unwrap();
                 println!("got sink. startin main loop");
 
-                let (mut ack_tx, mut ack_rx) = tokio::sync::mpsc::channel(1024);
 
-                // ack waiting loop
-                tokio::spawn(async move {
-                    loop {
-                        match ack_rx.recv().await {
-                            None => {
-                                // we're exiting. return.
-                                return;
-                            }
-                            Some(m) => {
-                                match m.await {
-                                    Ok(()) => {
-                                        // println!("sent one to proximo");
-                                    }
-                                    Err(e) => {
-                                        println!("error sending message to sink : {}", e);
-                                    }
-                                };
-                            }
-                        }
-                    }
-                });
+                let mut sends = Vec::new();
 
                 loop {
-                    match rx.recv().await {
-                        None => {
-                            println!("returning....");
-                            return;
+
+                    tokio::select! {
+                        _ =  sends.first().unwrap(), if sends.len() > 0 =>  {
+                            // this send completed
                         }
-                        Some(m) => {
-                            let ackFut = sink.send_message(m);
-                            match ack_tx.send(ackFut).await {
-                                Ok(()) => {
-                                    //     println!("sent one");
+                        m = rx.recv() => {
+                            match m {
+                                None => {
+                                    println!("returning....");
+                                    return;
                                 }
-                                Err(e) => {
-                                    println!("b error : {}", e);
+                                Some(m) => {
+                                    let ackFut = sink.send_message(m);
+                                    sends.push(ackFut);
                                 }
-                            };
+                            }
                         }
                     }
                 }
